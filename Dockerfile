@@ -1,3 +1,4 @@
+FROM ghcr.io/astral-sh/uv:0.4.20 AS uv
 FROM python:3.11-slim-bookworm AS build
 
 # hadolint ignore=DL3008
@@ -8,7 +9,7 @@ RUN apt-get update \
         libssl-dev \
         git
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+COPY --from=uv /uv /usr/local/bin/uv
 
 # - Silence uv complaining about not being able to use hard links,
 # - tell uv to byte-compile packages for faster application startups,
@@ -27,9 +28,6 @@ COPY CTFd/plugins /plugins/
 
 # Synchronize DEPENDENCIES without the application itself.
 # This layer is cached until uv.lock or pyproject.toml change.
-# You can create `/app` using `uv venv` in a separate `RUN`
-# step to have it cached, but with uv it's so fast, it's not worth
-# it, so we let `uv sync` create it for us automagically.
 # hadolint ignore=DL3003
 RUN --mount=type=cache,target=/root/.cache \
     cd /_lock \
@@ -46,13 +44,6 @@ RUN --mount=type=cache,target=/root/.cache \
                 "$d/requirements.txt"; \
         fi; \
     done
-
-# RUN pip install --no-cache-dir -r requirements.txt \
-#     && for d in CTFd/plugins/*; do \
-#         if [ -f "$d/requirements.txt" ]; then \
-#             pip install --no-cache-dir -r "$d/requirements.txt";\
-#         fi; \
-#     done;
 
 
 FROM python:3.11-slim-bookworm AS release
