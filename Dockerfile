@@ -1,55 +1,88 @@
 FROM python:3.11-slim-bookworm AS build
 
-WORKDIR /opt/CTFd
-
 # hadolint ignore=DL3008
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
+    && apt-get install -y --no-install-recommends --no-install-suggests \
         build-essential \
         libffi-dev \
         libssl-dev \
-        git \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* \
-    && python -m venv /opt/venv
+        git
 
-ENV PATH="/opt/venv/bin:$PATH"
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-COPY . /opt/CTFd
+# - Silence uv complaining about not being able to use hard links,
+# - tell uv to byte-compile packages for faster application startups,
+# - prevent uv from accidentally downloading isolated Python builds,
+# - pick a Python,
+# - and finally declare `/opt/venv` as the target for `uv sync`.
+ENV UV_LINK_MODE=copy \
+    UV_COMPILE_BYTECODE=1 \
+    UV_PYTHON_DOWNLOADS=never \
+    UV_PYTHON=python3.11 \
+    UV_PROJECT_ENVIRONMENT=/opt/venv
 
-RUN pip install --no-cache-dir -r requirements.txt \
-    && for d in CTFd/plugins/*; do \
+COPY pyproject.toml /_lock/
+COPY uv.lock /_lock/
+COPY CTFd/plugins /plugins/
+
+# Synchronize DEPENDENCIES without the application itself.
+# This layer is cached until uv.lock or pyproject.toml change.
+# You can create `/app` using `uv venv` in a separate `RUN`
+# step to have it cached, but with uv it's so fast, it's not worth
+# it, so we let `uv sync` create it for us automagically.
+# hadolint ignore=DL3003
+RUN --mount=type=cache,target=/root/.cache \
+    cd /_lock \
+    && uv sync \
+        --locked \
+        --no-dev \
+        --no-install-project \
+    && for d in /plugins/*; do \
         if [ -f "$d/requirements.txt" ]; then \
-            pip install --no-cache-dir -r "$d/requirements.txt";\
+            uv pip install \
+                --python=${UV_PROJECT_ENVIRONMENT} \
+                --no-deps \
+                -r \
+                "$d/requirements.txt"; \
         fi; \
-    done;
+    done
+
+# RUN pip install --no-cache-dir -r requirements.txt \
+#     && for d in CTFd/plugins/*; do \
+#         if [ -f "$d/requirements.txt" ]; then \
+#             pip install --no-cache-dir -r "$d/requirements.txt";\
+#         fi; \
+#     done;
 
 
 FROM python:3.11-slim-bookworm AS release
 WORKDIR /opt/CTFd
 
+ENV PATH="/opt/venv/bin:$PATH"
+
+ENTRYPOINT [ "/opt/CTFd/docker-entrypoint.sh" ]
+STOPSIGNAL SIGINT
+
 # hadolint ignore=DL3008
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
+    && apt-get install -y --no-install-recommends --no-install-suggests \
         libffi8 \
         libssl3 \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-COPY --chown=1001:1001 . /opt/CTFd
+COPY --chown=10001:10001 . /opt/CTFd
 
 RUN useradd \
     --no-log-init \
     --shell /bin/bash \
-    -u 1001 \
+    -u 10001 \
     ctfd \
     && mkdir -p /var/log/CTFd /var/uploads \
-    && chown -R 1001:1001 /var/log/CTFd /var/uploads /opt/CTFd \
+    && chown -R 10001:10001 /var/log/CTFd /var/uploads /opt/CTFd \
     && chmod +x /opt/CTFd/docker-entrypoint.sh
 
-COPY --chown=1001:1001 --from=build /opt/venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+COPY --from=build --chown=10001:10001 /opt/venv /opt/venv
 
-USER 1001
+USER 10001
 EXPOSE 8000
-ENTRYPOINT ["/opt/CTFd/docker-entrypoint.sh"]
