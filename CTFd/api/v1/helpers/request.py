@@ -23,10 +23,14 @@ def validate_args(spec, location):
         spec = create_model("", **spec)
 
     schema = spec.schema()
+    definitions = schema.get("definitions", {})
     props = schema.get("properties", {})
     required = schema.get("required", [])
 
     for k in props:
+        if "$ref" in props[k]:
+            props[k].update(definitions[props[k].pop("$ref").split("/").pop()])
+            props[k]["type"] = "string"
         if k in required:
             props[k]["required"] = True
         props[k]["in"] = location
