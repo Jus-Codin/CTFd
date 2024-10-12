@@ -54,6 +54,13 @@ ENV PATH="/opt/venv/bin:$PATH"
 ENTRYPOINT [ "/opt/CTFd/docker-entrypoint.sh" ]
 STOPSIGNAL SIGINT
 
+RUN useradd \
+    --no-log-init \
+    --shell /bin/bash \
+    -u 10001 \
+    ctfd \
+    && mkdir -p /var/log/CTFd /var/uploads
+
 # hadolint ignore=DL3008
 RUN apt-get update \
     && apt-get install -y --no-install-recommends --no-install-suggests \
@@ -62,18 +69,12 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
+COPY --from=build --chown=10001:10001 /opt/venv /opt/venv
+
 COPY --chown=10001:10001 . /opt/CTFd
 
-RUN useradd \
-    --no-log-init \
-    --shell /bin/bash \
-    -u 10001 \
-    ctfd \
-    && mkdir -p /var/log/CTFd /var/uploads \
-    && chown -R 10001:10001 /var/log/CTFd /var/uploads /opt/CTFd \
+RUN chown -R 10001:10001 /var/log/CTFd /var/uploads /opt/CTFd \
     && chmod +x /opt/CTFd/docker-entrypoint.sh
-
-COPY --from=build --chown=10001:10001 /opt/venv /opt/venv
 
 USER 10001
 EXPOSE 8000
