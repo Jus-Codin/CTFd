@@ -84,6 +84,20 @@ class FilesList(Resource):
                 "APISimpleErrorResponse",
             ),
         },
+        params={
+            "file": {
+                "in": "formData",
+                "type": "file",
+                "required": True,
+                "description": "The file to upload",
+            }
+        },
+    )
+    @validate_args(
+        {
+            "location": (str, None),
+        },
+        location="form",
     )
     def post(self):
         files = request.files.getlist("file")
