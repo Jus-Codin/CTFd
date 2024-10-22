@@ -1,7 +1,7 @@
 from functools import wraps
 
 from flask import request
-from pydantic import ValidationError, create_model
+from pydantic import Extra, ValidationError, create_model
 
 ARG_LOCATIONS = {
     "query": lambda: request.args,
@@ -12,15 +12,21 @@ ARG_LOCATIONS = {
 }
 
 
-def validate_args(spec, location):
+def expects_args(spec, location, allow_extras=False, validate=False):
     """
-    A rough implementation of webargs using pydantic schemas. You can pass a
-    pydantic schema as spec or create it on the fly as follows:
+    A decorator to document an endpoint's expected parameters, with support for optional validation.
 
-    @validate_args({"name": (str, None), "id": (int, None)}, location="query")
+    Args:
+        spec: The pydantic model to use for validation
+        location: The location of the request. One of "query", "json", "form", "headers", "cookies"
+        allow_extras: Allow extra parameters in the request
+        validate: Perform validation of the request
     """
     if isinstance(spec, dict):
         spec = create_model("", **spec)
+
+    if allow_extras:
+        spec.__config__.extra = Extra.allow
 
     schema = spec.schema()
 
@@ -79,6 +85,10 @@ def validate_args(spec, location):
         @wraps(func)
         def wrapper(*args, **kwargs):
             data = ARG_LOCATIONS[location]()
+
+            if not validate:
+                return func(*args, data, **kwargs)
+
             try:
                 # Try to load data according to pydantic spec
                 loaded = spec(**data).dict(exclude_unset=True)
@@ -96,3 +106,7 @@ def validate_args(spec, location):
         return wrapper
 
     return decorator
+
+
+def validate_args(spec, location, allow_extras=False):
+    return expects_args(spec, location, allow_extras, validate=True)
