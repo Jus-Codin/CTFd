@@ -26,10 +26,11 @@ botocore==1.35.39
     #   s3transfer
 cachelib==0.9.0
     # via flask-caching
-certifi==2024.8.30
+certifi==2024.7.4
     # via requests
 cffi==1.17.1
     # via
+    #   -r requirements.in
     #   cmarkgfm
     #   cryptography
     #   gevent
@@ -37,7 +38,7 @@ charset-normalizer==3.4.0
     # via requests
 click==8.1.7
     # via flask
-cmarkgfm==2022.10.27
+cmarkgfm==2024.1.14
     # via -r requirements.in
 colorama==0.4.6
     # via click
@@ -85,8 +86,9 @@ idna==3.10
     # via requests
 itsdangerous==2.2.0
     # via flask
-jinja2==3.1.4
+jinja2==3.1.5
     # via
+    #   -r requirements.in
     #   flask
     #   flask-babel
 jmespath==1.0.1
@@ -153,13 +155,9 @@ rpds-py==0.20.0
     #   referencing
 s3transfer==0.10.3
     # via boto3
-setuptools==75.1.0
-    # via
-    #   gunicorn
-    #   zope-event
-    #   zope-interface
 six==1.16.0
     # via
+    #   -r requirements.in
     #   flask-marshmallow
     #   python-dateutil
     #   tenacity
@@ -175,10 +173,9 @@ sqlalchemy-utils==0.41.1
     # via -r requirements.in
 tenacity==6.2.0
     # via -r requirements.in
-typing-extensions==4.12.2
-    # via alembic
-urllib3==2.2.3
+urllib3==1.26.20
     # via
+    #   -r requirements.in
     #   botocore
     #   requests
 werkzeug==2.0.3
